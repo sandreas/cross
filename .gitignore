@@ -39,3 +39,7 @@ tags
 # Persistent undo
 [._]*.un~
 
+docker/sysroot/*
+!docker/sysroot/create-tar-gz.sh
+!docker/sysroot/extract-tar-gz.sh
+

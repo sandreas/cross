@@ -19,8 +19,8 @@ main() {
     local cmake_sha256
 
     local narch
-    narch="$(uname -p)"
-
+    # narch="$(uname -p)"
+    narch="x86_64"
     echo "[INFO] $narch"
 
     case "${narch}" in

@@ -10,7 +10,7 @@ set_centos_ulimit() {
 }
 
 install_packages() {
-    if grep -i ubuntu /etc/os-release; then
+    if grep -i debian /etc/os-release; then
         apt-get update
 
         for pkg in "${@}"; do
@@ -34,7 +34,7 @@ install_packages() {
 
 purge_packages() {
     if (( ${#purge_list[@]} )); then
-        if grep -i ubuntu /etc/os-release; then
+        if grep -i debian /etc/os-release; then
             apt-get purge --assume-yes --auto-remove "${purge_list[@]}"
         else
             yum remove -y "${purge_list[@]}"
@@ -49,13 +49,13 @@ if_centos() {
 }
 
 if_ubuntu() {
-    if grep -q -i ubuntu /etc/os-release; then
+    if grep -q -i debian /etc/os-release; then
         eval "${@}"
     fi
 }
 
 if_ubuntu_ge() {
-    if grep -q -i ubuntu /etc/os-release; then
+    if grep -q -i debian /etc/os-release; then
         local ver
         ver="$(source /etc/os-release; echo $VERSION_ID)"
         if dpkg --compare-versions "$ver" "ge" "$1"; then

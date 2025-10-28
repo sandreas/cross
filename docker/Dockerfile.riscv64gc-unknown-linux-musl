@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 AS cross-base
+FROM debian:trixie-slim AS cross-base
 ENV DEBIAN_FRONTEND=noninteractive
 
 COPY common.sh lib.sh /
@@ -7,8 +7,8 @@ RUN /common.sh
 COPY cmake.sh /
 RUN /cmake.sh
 
-COPY xargo.sh /
-RUN /xargo.sh
+# COPY xargo.sh /
+# RUN /xargo.sh
 
 FROM cross-base AS build
 
@@ -23,14 +23,28 @@ RUN /crosstool-ng.sh riscv64gc-unknown-linux-musl.config 5
 
 ENV PATH=/x-tools/riscv64-unknown-linux-musl/bin/:$PATH
 
-COPY qemu.sh /
-RUN /qemu.sh riscv64
+
+RUN apt-get install  -y --no-install-recommends qemu-user-static binfmt-support
+# COPY qemu.sh /
+# RUN /qemu.sh riscv64
 
 COPY tidyup.sh /
 RUN /tidyup.sh
 
+FROM --platform=riscv64 alpine:3.22.2 as riscy
+RUN  apk add --no-cache --update --upgrade \
+    libinput libxkbcommon fontconfig libxcb libstdc++ mesa-gbm libxkbcommon libudev-zero  \
+  && echo "---- completed: INSTALL PACKAGES----"
+
+# libudev1:riscv64
+
+
 FROM scratch AS final
 COPY --from=build / /
+
+COPY --from=riscy /usr/lib/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
+COPY --from=riscy /lib/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/lib/
+
 CMD ["/bin/bash"]
 ENV PATH=/x-tools/riscv64-unknown-linux-musl/bin/:$PATH
 
@@ -54,5 +68,79 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER="$CROSS_TOOLCHAIN_PREFIX"gc
     CROSS_CMAKE_SYSTEM_PROCESSOR=riscv64gc \
     CROSS_CMAKE_CRT=musl \
     CROSS_CMAKE_OBJECT_FLAGS="-ffunction-sections -fdata-sections -fPIC -march=rv64gc -mabi=lp64d -mcmodel=medany"
-
 RUN sed -e "s#@DEFAULT_QEMU_LD_PREFIX@#$QEMU_LD_PREFIX#g" -i /qemu-runner
+
+#RUN apt-get install -y --no-install-recommends
+RUN apt-get update && apt-get install -y --no-install-recommends \
+   python3 python3-pip libfontconfig1-dev clang ninja-build
+# RUN dpkg --add-architecture riscv64
+#RUN apt-get install -y --no-install-recommends libinput10:riscv64 libxkbcommon0:riscv64 libgbm1:riscv64 libudev1:riscv64 libfontconfig1-dev:riscv64 libxcb1-dev:riscv64 libxcb-render0-dev:riscv64 libxcb-shape0-dev:riscv64 libxcb-xfixes0-dev:riscv64 libxkbcommon-dev:riscv64 libinput-dev:riscv64 libgbm-dev:riscv64 libstdc++-14-dev:riscv64
+#RUN cp -r /usr/lib/riscv64-linux-gnu/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
+#RUN cp -r /lib/riscv64-linux-gnu/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/lib/
+
+ADD sysroot/usr/lib /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
+# COPY sysroot/lib/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/lib/
+
+
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbrotlidec.so.1.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbrotlidec.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libXdmcp.so.6.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libXdmcp.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-present.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-present.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libmtdev.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libmtdev.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libinput.so.10.13.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libinput.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libzstd.so.1.5.7 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libzstd.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libz.so.1.3.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libz.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_amdgpu.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_amdgpu.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbrotlicommon.so.1.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbrotlicommon.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dbe.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dbe.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbz2.so.1.0.8 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbz2.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dpms.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dpms.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libfontconfig.so.1.12.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libfontconfig.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_freedreno.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_freedreno.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libpciaccess.so.0.11.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libpciaccess.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-composite.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-composite.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libpng16.so.16.47.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libpng16.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-res.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-res.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/lib/libLLVM.so.20.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libLLVM.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxshmfence.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libxshmfence.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-glx.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-glx.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_exynos.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_exynos.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xf86dri.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xf86dri.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-randr.so.0.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-randr.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libapk.so.2.14.9 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libapk.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-shape.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-shape.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-sync.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-sync.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-render.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-render.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_radeon.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_radeon.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libX11.so.6.4.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libX11.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xfixes.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xfixes.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/liblzma.so.5.8.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//liblzma.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libX11-xcb.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libX11-xcb.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_intel.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_intel.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xv.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xv.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libwayland-server.so.0.23.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libwayland-server.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-damage.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-damage.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_nouveau.so.2.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_nouveau.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libgbm.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libgbm.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxml2.so.2.13.9 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libxml2.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-screensaver.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-screensaver.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xinput.so.0.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xinput.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dri2.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dri2.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbsd.so.0.12.2 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbsd.so# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libexpat.so.1.11.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libexpat.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xtest.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xtest.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxkbregistry.so.0.8.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libxkbregistry.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_tegra.so.0.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_tegra.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libmd.so.0.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libmd.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libfreetype.so.6.20.2 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libfreetype.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbrotlienc.so.1.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbrotlienc.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xkb.so.1.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xkb.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xinerama.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xinerama.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-record.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-record.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libffi.so.8.1.4 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libffi.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libXau.so.6.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libXau.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_etnaviv.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_etnaviv.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb.so.1.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libxcb.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dri3.so.0.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-dri3.so# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm_omap.so.1.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm_omap.so# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libstdc++.so.6.0.33 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libstdc++.so# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-shm.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-shm.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxkbcommon.so.0.8.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libxkbcommon.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xvmc.so.0.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libxcb-xvmc.so# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libevdev.so.2.3.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libevdev.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libdrm.so.2.124.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libdrm.so
+# RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libudev.so.1 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libudev.so

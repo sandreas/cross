@@ -78,9 +78,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #RUN cp -r /usr/lib/riscv64-linux-gnu/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
 #RUN cp -r /lib/riscv64-linux-gnu/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/lib/
 
-ADD sysroot/usr/lib /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
+# ADD sysroot/usr/lib /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/
 # COPY sysroot/lib/* /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/lib/
-
+RUN curl -L -o /tmp/musl-cross.tar.gz https://musl.cc/riscv64-linux-musl-cross.tgz
+RUN tar -xzf /tmp/musl-cross.tar.gz -C /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/
 
 # RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libbrotlidec.so.1.1.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libbrotlidec.so
 # RUN ln -s /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib/libXdmcp.so.6.0.0 /x-tools/riscv64-unknown-linux-musl/riscv64-unknown-linux-musl/sysroot/usr/lib//libXdmcp.so
